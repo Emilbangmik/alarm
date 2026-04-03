@@ -18,13 +18,22 @@ final class AlarmStore {
     func startMonitoring() {
         Task {
             for await systemAlarms in manager.alarmUpdates {
-                // Check if a challenge alarm started alerting
                 for systemAlarm in systemAlarms {
+                    guard let localAlarm = alarms.first(where: { $0.id == systemAlarm.id }) else { continue }
+
+                    // Challenge alarm started alerting
                     if systemAlarm.state == .alerting,
-                       let localAlarm = alarms.first(where: { $0.id == systemAlarm.id }),
                        localAlarm.requiresTypingChallenge,
                        activeChallenge == nil {
                         activeChallenge = localAlarm
+                    }
+
+                    // Non-challenge one-time alarm finished — disable it
+                    if systemAlarm.state != .alerting,
+                       !localAlarm.requiresTypingChallenge,
+                       localAlarm.repeatDays.isEmpty,
+                       localAlarm.isEnabled {
+                        disableIfOneTime(localAlarm)
                     }
                 }
 
@@ -66,8 +75,8 @@ final class AlarmStore {
 
     func completeChallenge() {
         guard let alarm = activeChallenge else { return }
-        // Fully cancel the alarm
         try? manager.cancel(id: alarm.id)
+        disableIfOneTime(alarm)
         activeChallenge = nil
     }
 
@@ -234,6 +243,14 @@ final class AlarmStore {
                 print("Failed to schedule alarm: \(error) — hour:\(alarm.hour) min:\(alarm.minute) repeat:\(alarm.repeatDays)")
             }
         }
+    }
+
+    private func disableIfOneTime(_ alarm: Alarm) {
+        guard alarm.repeatDays.isEmpty,
+              let index = alarms.firstIndex(where: { $0.id == alarm.id })
+        else { return }
+        alarms[index].isEnabled = false
+        save()
     }
 
     private func cancelAlarm(_ alarm: Alarm) {

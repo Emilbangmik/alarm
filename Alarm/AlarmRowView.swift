@@ -62,7 +62,7 @@ struct AlarmRowView: View {
             .padding(.leading, 12)
             .padding(.trailing, 14)
         }
-        .padding(.vertical, 16)
+        .frame(height: 70)
     }
 }
 
