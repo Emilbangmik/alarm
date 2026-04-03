@@ -61,11 +61,14 @@ final class AlarmStore {
                 presentation: AlarmPresentation(alert: alert),
                 tintColor: Theme.amber
             )
+            let stop: StopAlarmIntent? = alarm.requiresTypingChallenge ? StopAlarmIntent() : nil
             _ = try? await manager.schedule(
                 id: alarm.id,
-                configuration: AlarmManager.AlarmConfiguration(
+                configuration: .alarm(
                     schedule: schedule,
                     attributes: attributes,
+                    stopIntent: stop,
+                    secondaryIntent: nil,
                     sound: .default
                 )
             )
@@ -83,31 +86,7 @@ final class AlarmStore {
     func failChallenge() {
         guard let alarm = activeChallenge else { return }
         activeChallenge = nil
-        // Re-schedule to fire again in 1 minute
-        Task {
-            let date = Date().addingTimeInterval(60)
-            let schedule = AlarmKit.Alarm.Schedule.fixed(date)
-            let alert = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: alarm.label.isEmpty ? "Alarm" : alarm.label)
-            )
-            let attributes = AlarmAttributes<AlarmMeta>(
-                presentation: AlarmPresentation(alert: alert),
-                tintColor: Theme.amber
-            )
-            let countdown = AlarmKit.Alarm.CountdownDuration(
-                preAlert: nil,
-                postAlert: 300
-            )
-            _ = try? await manager.schedule(
-                id: alarm.id,
-                configuration: AlarmManager.AlarmConfiguration(
-                    countdownDuration: countdown,
-                    schedule: schedule,
-                    attributes: attributes,
-                    sound: .default
-                )
-            )
-        }
+        rescheduleChallenge(alarm)
     }
 
     func add(_ alarm: Alarm) {

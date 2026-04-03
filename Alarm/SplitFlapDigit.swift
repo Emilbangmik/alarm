@@ -10,10 +10,19 @@ private struct FlipDirectionKey: EnvironmentKey {
     static let defaultValue: FlipDirection = .down
 }
 
+private struct FlipSpeedKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
 extension EnvironmentValues {
     var flipDirection: FlipDirection {
         get { self[FlipDirectionKey.self] }
         set { self[FlipDirectionKey.self] = newValue }
+    }
+
+    var flipSpeed: CGFloat {
+        get { self[FlipSpeedKey.self] }
+        set { self[FlipSpeedKey.self] = newValue }
     }
 }
 
@@ -120,12 +129,14 @@ struct SplitFlapDigit: View {
     let size: SplitFlapSize
 
     @Environment(\.flipDirection) private var flipDirection
+    @Environment(\.flipSpeed) private var flipSpeed
     @State private var previousValue: Int
     @State private var animating = false
     @State private var showingFront = true
     @State private var showOldStatic = false
     @State private var flapAngle: Double = 0
     @State private var currentDirection: FlipDirection = .down
+    @State private var animationTask: Task<Void, Never>?
 
     private var width: CGFloat { size.width }
     private var fullHeight: CGFloat { size.fullHeight }
@@ -216,6 +227,10 @@ struct SplitFlapDigit: View {
         .frame(width: width, height: fullHeight)
         .onChange(of: value) { oldVal, newVal in
             guard oldVal != newVal else { return }
+
+            // Cancel any in-flight animation
+            animationTask?.cancel()
+
             previousValue = oldVal
             currentDirection = flipDirection
             animating = true
@@ -223,22 +238,30 @@ struct SplitFlapDigit: View {
             showOldStatic = true
             flapAngle = 0
 
+            // Continuous exponential mapping: velocity → duration
+            // 0 pt/s → 0.2s, 300 pt/s → 0.1s, 1000+ pt/s → 0.02s
+            let speed = abs(flipSpeed)
+            let phaseDuration = max(0.12, 0.25 * exp(-speed / 2500))
+
             let phase1Target: Double = currentDirection == .down ? -90 : 90
             let phase2Target: Double = currentDirection == .down ? -180 : 180
 
-            withAnimation(.easeIn(duration: 0.25)) {
+            withAnimation(.easeIn(duration: phaseDuration)) {
                 flapAngle = phase1Target
             }
 
-            Task {
-                try? await Task.sleep(for: .seconds(0.25))
+            animationTask = Task {
+                try? await Task.sleep(for: .seconds(phaseDuration))
+                guard !Task.isCancelled else { return }
                 showingFront = false
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(.easeOut(duration: phaseDuration)) {
                     flapAngle = phase2Target
                 }
-                try? await Task.sleep(for: .seconds(0.2))
+                try? await Task.sleep(for: .seconds(phaseDuration * 0.8))
+                guard !Task.isCancelled else { return }
                 showOldStatic = false
-                try? await Task.sleep(for: .seconds(0.05))
+                try? await Task.sleep(for: .seconds(phaseDuration * 0.2))
+                guard !Task.isCancelled else { return }
                 animating = false
                 showingFront = true
             }

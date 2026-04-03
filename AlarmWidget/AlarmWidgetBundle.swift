@@ -5,5 +5,6 @@ import SwiftUI
 struct AlarmWidgetBundle: WidgetBundle {
     var body: some Widget {
         AlarmLiveActivity()
+        OpenAppControl()
     }
 }

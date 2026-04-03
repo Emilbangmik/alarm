@@ -7,9 +7,10 @@ struct SplitFlapTimePicker: View {
     @State private var hourDrag: CGFloat = 0
     @State private var minuteDrag: CGFloat = 0
     @State private var flipDirection: FlipDirection = .down
+    @State private var flipSpeed: CGFloat = 0
 
     private let haptics = HapticManager()
-    private let stepSize: CGFloat = 30
+    private let stepSize: CGFloat = 20
 
     var body: some View {
         VStack(spacing: 20) {
@@ -42,6 +43,7 @@ struct SplitFlapTimePicker: View {
 
         }
         .environment(\.flipDirection, flipDirection)
+        .environment(\.flipSpeed, flipSpeed)
         .onAppear {
             haptics.prepare()
         }
@@ -73,6 +75,7 @@ struct SplitFlapTimePicker: View {
                         if steps != 0 {
                             dragAccumulator.wrappedValue += CGFloat(steps) * stepSize
                             flipDirection = steps > 0 ? .down : .up
+                            flipSpeed = abs(gesture.velocity.height)
                             let newValue = (value.wrappedValue - steps + range * 100) % range
                             value.wrappedValue = newValue
                             haptics.tick()
@@ -80,6 +83,7 @@ struct SplitFlapTimePicker: View {
                     }
                     .onEnded { _ in
                         dragAccumulator.wrappedValue = 0
+                        flipSpeed = 0
                     }
             )
 
