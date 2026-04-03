@@ -7,6 +7,7 @@ nonisolated struct AlarmMeta: AlarmMetadata {}
 @Observable
 final class AlarmStore {
     private(set) var alarms: [Alarm] = []
+    var activeChallenge: Alarm?
     private let key = "savedAlarms"
     private let manager = AlarmManager.shared
 
@@ -14,11 +15,98 @@ final class AlarmStore {
         load()
     }
 
+    func startMonitoring() {
+        Task {
+            for await systemAlarms in manager.alarmUpdates {
+                // Check if a challenge alarm started alerting
+                for systemAlarm in systemAlarms {
+                    if systemAlarm.state == .alerting,
+                       let localAlarm = alarms.first(where: { $0.id == systemAlarm.id }),
+                       localAlarm.requiresTypingChallenge,
+                       activeChallenge == nil {
+                        activeChallenge = localAlarm
+                    }
+                }
+
+                // If user stopped the alarm without completing the challenge, re-fire it
+                if let challenge = activeChallenge {
+                    let stillAlerting = systemAlarms.contains { $0.id == challenge.id && $0.state == .alerting }
+                    let stillScheduled = systemAlarms.contains { $0.id == challenge.id }
+                    if !stillAlerting && !stillScheduled {
+                        // Alarm was dismissed — re-schedule in 1 minute
+                        rescheduleChallenge(challenge)
+                    }
+                }
+            }
+        }
+    }
+
+    private func rescheduleChallenge(_ alarm: Alarm) {
+        Task {
+            let date = Date().addingTimeInterval(60)
+            let schedule = AlarmKit.Alarm.Schedule.fixed(date)
+            let alert = AlarmPresentation.Alert(
+                title: LocalizedStringResource(stringLiteral: alarm.label.isEmpty ? "Alarm" : alarm.label)
+            )
+            let attributes = AlarmAttributes<AlarmMeta>(
+                presentation: AlarmPresentation(alert: alert),
+                tintColor: Theme.amber
+            )
+            _ = try? await manager.schedule(
+                id: alarm.id,
+                configuration: AlarmManager.AlarmConfiguration(
+                    schedule: schedule,
+                    attributes: attributes,
+                    sound: .default
+                )
+            )
+            print("Challenge alarm re-scheduled in 1 minute")
+        }
+    }
+
+    func completeChallenge() {
+        guard let alarm = activeChallenge else { return }
+        // Fully cancel the alarm
+        try? manager.cancel(id: alarm.id)
+        activeChallenge = nil
+    }
+
+    func failChallenge() {
+        guard let alarm = activeChallenge else { return }
+        activeChallenge = nil
+        // Re-schedule to fire again in 1 minute
+        Task {
+            let date = Date().addingTimeInterval(60)
+            let schedule = AlarmKit.Alarm.Schedule.fixed(date)
+            let alert = AlarmPresentation.Alert(
+                title: LocalizedStringResource(stringLiteral: alarm.label.isEmpty ? "Alarm" : alarm.label)
+            )
+            let attributes = AlarmAttributes<AlarmMeta>(
+                presentation: AlarmPresentation(alert: alert),
+                tintColor: Theme.amber
+            )
+            let countdown = AlarmKit.Alarm.CountdownDuration(
+                preAlert: nil,
+                postAlert: 300
+            )
+            _ = try? await manager.schedule(
+                id: alarm.id,
+                configuration: AlarmManager.AlarmConfiguration(
+                    countdownDuration: countdown,
+                    schedule: schedule,
+                    attributes: attributes,
+                    sound: .default
+                )
+            )
+        }
+    }
+
     func add(_ alarm: Alarm) {
         alarms.append(alarm)
         alarms.sort { ($0.hour * 60 + $0.minute) < ($1.hour * 60 + $1.minute) }
         save()
         if alarm.isEnabled {
+            cancelAlarm(alarm)
             scheduleAlarm(alarm)
         }
     }
@@ -60,17 +148,22 @@ final class AlarmStore {
     }
 
     func requestAuthorization() async -> Bool {
-        switch manager.authorizationState {
+        let current = manager.authorizationState
+        print("AlarmKit auth state: \(current)")
+        switch current {
         case .notDetermined:
             do {
                 let state = try await manager.requestAuthorization()
+                print("AlarmKit auth result: \(state)")
                 return state == .authorized
             } catch {
+                print("AlarmKit auth error: \(error)")
                 return false
             }
         case .authorized:
             return true
         case .denied:
+            print("AlarmKit auth DENIED — check Settings")
             return false
         @unknown default:
             return false
@@ -80,31 +173,33 @@ final class AlarmStore {
     // MARK: - AlarmKit Scheduling
 
     private func scheduleAlarm(_ alarm: Alarm) {
-        Task {
-            let alert = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: alarm.label.isEmpty ? "Alarm" : alarm.label)
-            )
+        Task { @MainActor in
+            let title = LocalizedStringResource(stringLiteral: alarm.label.isEmpty ? "Alarm" : alarm.label)
+            let alert = AlarmPresentation.Alert(title: title)
 
             let attributes = AlarmAttributes<AlarmMeta>(
                 presentation: AlarmPresentation(alert: alert),
                 tintColor: Theme.amber
             )
 
+            // Challenge alarms: stop slider opens the app
+            let stop: StopAlarmIntent? = alarm.requiresTypingChallenge ? StopAlarmIntent() : nil
+
             do {
                 if alarm.repeatDays.isEmpty {
-                    // One-time alarm
                     let date = nextOccurrence(hour: alarm.hour, minute: alarm.minute)
                     let schedule = AlarmKit.Alarm.Schedule.fixed(date)
                     _ = try await manager.schedule(
                         id: alarm.id,
-                        configuration: AlarmManager.AlarmConfiguration(
+                        configuration: .alarm(
                             schedule: schedule,
                             attributes: attributes,
+                            stopIntent: stop,
+                            secondaryIntent: nil,
                             sound: .default
                         )
                     )
                 } else {
-                    // Recurring alarm
                     let time = AlarmKit.Alarm.Schedule.Relative.Time(
                         hour: alarm.hour,
                         minute: alarm.minute
@@ -120,22 +215,23 @@ final class AlarmStore {
                         case .saturday: .saturday
                         }
                     }
-                    let relative = AlarmKit.Alarm.Schedule.Relative(
+                    let schedule = AlarmKit.Alarm.Schedule.relative(.init(
                         time: time,
                         repeats: .weekly(weekdays)
-                    )
-                    let schedule = AlarmKit.Alarm.Schedule.relative(relative)
+                    ))
                     _ = try await manager.schedule(
                         id: alarm.id,
-                        configuration: AlarmManager.AlarmConfiguration(
+                        configuration: .alarm(
                             schedule: schedule,
                             attributes: attributes,
+                            stopIntent: stop,
+                            secondaryIntent: nil,
                             sound: .default
                         )
                     )
                 }
             } catch {
-                print("Failed to schedule alarm: \(error)")
+                print("Failed to schedule alarm: \(error) — hour:\(alarm.hour) min:\(alarm.minute) repeat:\(alarm.repeatDays)")
             }
         }
     }

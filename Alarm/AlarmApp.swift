@@ -17,6 +17,7 @@ struct AlarmApp: App {
                 .environment(store)
                 .task {
                     _ = await store.requestAuthorization()
+                    store.startMonitoring()
                 }
         }
     }

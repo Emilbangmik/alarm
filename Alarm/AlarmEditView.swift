@@ -15,6 +15,7 @@ struct AlarmEditView: View {
     @State private var minute: Int
     @State private var label: String
     @State private var repeatDays: Set<Weekday>
+    @State private var requiresTypingChallenge: Bool
 
     private let haptics = HapticManager()
 
@@ -27,11 +28,13 @@ struct AlarmEditView: View {
             _minute = State(initialValue: components.minute ?? 0)
             _label = State(initialValue: "")
             _repeatDays = State(initialValue: [])
+            _requiresTypingChallenge = State(initialValue: false)
         case .edit(let alarm):
             _hour = State(initialValue: alarm.hour)
             _minute = State(initialValue: alarm.minute)
             _label = State(initialValue: alarm.label)
             _repeatDays = State(initialValue: alarm.repeatDays)
+            _requiresTypingChallenge = State(initialValue: alarm.requiresTypingChallenge)
         }
     }
 
@@ -62,6 +65,23 @@ struct AlarmEditView: View {
                         .tracking(1)
                     WeekdayPicker(selection: $repeatDays)
                 }
+
+                // Type to dismiss
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: $requiresTypingChallenge) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Type to dismiss")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("Type a sentence to turn off the alarm")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .tint(Theme.amber)
+                }
+                .padding(14)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
 
                 Spacer()
 
@@ -113,7 +133,8 @@ struct AlarmEditView: View {
                 hour: hour,
                 minute: minute,
                 label: label,
-                repeatDays: repeatDays
+                repeatDays: repeatDays,
+                requiresTypingChallenge: requiresTypingChallenge
             )
             store.add(alarm)
         case .edit(let existing):
@@ -122,6 +143,7 @@ struct AlarmEditView: View {
             updated.minute = minute
             updated.label = label
             updated.repeatDays = repeatDays
+            updated.requiresTypingChallenge = requiresTypingChallenge
             store.update(updated)
         }
     }

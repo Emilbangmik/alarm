@@ -31,6 +31,14 @@ struct ContentView: View {
             .sheet(isPresented: $showingAddSheet) {
                 AlarmEditView(mode: .add)
             }
+            .fullScreenCover(item: Binding(
+                get: { store.activeChallenge },
+                set: { store.activeChallenge = $0 }
+            )) { alarm in
+                TypingChallengeView(alarm: alarm) {
+                    store.completeChallenge()
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }

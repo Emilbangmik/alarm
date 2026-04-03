@@ -7,6 +7,7 @@ struct Alarm: Identifiable, Codable, Sendable {
     var isEnabled: Bool
     var label: String
     var repeatDays: Set<Weekday>
+    var requiresTypingChallenge: Bool
 
     nonisolated init(
         id: UUID = UUID(),
@@ -14,7 +15,8 @@ struct Alarm: Identifiable, Codable, Sendable {
         minute: Int = 0,
         isEnabled: Bool = true,
         label: String = "",
-        repeatDays: Set<Weekday> = []
+        repeatDays: Set<Weekday> = [],
+        requiresTypingChallenge: Bool = false
     ) {
         self.id = id
         self.hour = hour
@@ -22,6 +24,18 @@ struct Alarm: Identifiable, Codable, Sendable {
         self.isEnabled = isEnabled
         self.label = label
         self.repeatDays = repeatDays
+        self.requiresTypingChallenge = requiresTypingChallenge
+    }
+
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        hour = try container.decode(Int.self, forKey: .hour)
+        minute = try container.decode(Int.self, forKey: .minute)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        label = try container.decode(String.self, forKey: .label)
+        repeatDays = try container.decode(Set<Weekday>.self, forKey: .repeatDays)
+        requiresTypingChallenge = try container.decodeIfPresent(Bool.self, forKey: .requiresTypingChallenge) ?? false
     }
 
     nonisolated var timeString: String {
