@@ -45,63 +45,63 @@ struct AlarmEditView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 28) {
-                // Time picker
-                SplitFlapTimePicker(hour: $hour, minute: $minute)
-                    .padding(.top, 20)
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Time picker
+                    SplitFlapTimePicker(hour: $hour, minute: $minute)
 
-                // Label
-                TextField("Label", text: $label)
-                    .textFieldStyle(.plain)
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding()
+                    // Label
+                    TextField("Label", text: $label)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding()
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+
+                    // Repeat days
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("REPEAT")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                            .tracking(1)
+                        WeekdayPicker(selection: $repeatDays)
+                    }
+
+                    // Type to dismiss
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle(isOn: $requiresTypingChallenge) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Type to dismiss")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Theme.textPrimary)
+                                Text("Type a sentence to turn off the alarm")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                        .tint(Theme.amber)
+                    }
+                    .padding(14)
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
 
-                // Repeat days
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("REPEAT")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                        .tracking(1)
-                    WeekdayPicker(selection: $repeatDays)
-                }
-
-                // Type to dismiss
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle(isOn: $requiresTypingChallenge) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Type to dismiss")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(Theme.textPrimary)
-                            Text("Type a sentence to turn off the alarm")
-                                .font(.caption)
-                                .foregroundStyle(Theme.textSecondary)
+                    // Delete button (edit mode only)
+                    if isEditing {
+                        Button(role: .destructive) {
+                            if case .edit(let alarm) = mode {
+                                store.delete(alarm)
+                                dismiss()
+                            }
+                        } label: {
+                            Text("Delete Alarm")
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.red.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
                         }
+                        .foregroundStyle(.red)
                     }
-                    .tint(Theme.amber)
                 }
-                .padding(14)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-
-                Spacer()
-
-                // Delete button (edit mode only)
-                if isEditing {
-                    Button(role: .destructive) {
-                        if case .edit(let alarm) = mode {
-                            store.delete(alarm)
-                            dismiss()
-                        }
-                    } label: {
-                        Text("Delete Alarm")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.red.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .foregroundStyle(.red)
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
             }
-            .padding(.horizontal, 20)
             .background(Theme.background)
             .navigationTitle(isEditing ? "Edit Alarm" : "New Alarm")
             .navigationBarTitleDisplayMode(.inline)
