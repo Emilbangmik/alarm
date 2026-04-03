@@ -22,11 +22,13 @@ extension EnvironmentValues {
 enum SplitFlapSize {
     case large
     case medium
+    case small
 
     var width: CGFloat {
         switch self {
         case .large: 115
         case .medium: 80
+        case .small: 34
         }
     }
 
@@ -34,6 +36,7 @@ enum SplitFlapSize {
         switch self {
         case .large: 98
         case .medium: 68
+        case .small: 30
         }
     }
 
@@ -41,6 +44,7 @@ enum SplitFlapSize {
         switch self {
         case .large: 90
         case .medium: 62
+        case .small: 26
         }
     }
 
@@ -48,6 +52,7 @@ enum SplitFlapSize {
         switch self {
         case .large: 16
         case .medium: 12
+        case .small: 6
         }
     }
 
@@ -55,6 +60,7 @@ enum SplitFlapSize {
         switch self {
         case .large: 2
         case .medium: 2
+        case .small: 1
         }
     }
 

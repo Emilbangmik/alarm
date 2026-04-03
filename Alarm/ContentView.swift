@@ -13,12 +13,8 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                AlarmListView()
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-            .background(Theme.background)
+            AlarmListView()
+                .background(Theme.background)
             .navigationTitle("Alarm")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
