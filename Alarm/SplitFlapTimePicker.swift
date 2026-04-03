@@ -6,6 +6,7 @@ struct SplitFlapTimePicker: View {
 
     @State private var hourDrag: CGFloat = 0
     @State private var minuteDrag: CGFloat = 0
+    @State private var flipDirection: FlipDirection = .down
 
     private let haptics = HapticManager()
     private let stepSize: CGFloat = 30
@@ -39,11 +40,8 @@ struct SplitFlapTimePicker: View {
                 )
             }
 
-            // Hint text
-            Text("Drag up or down to set time")
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
         }
+        .environment(\.flipDirection, flipDirection)
         .onAppear {
             haptics.prepare()
         }
@@ -74,6 +72,7 @@ struct SplitFlapTimePicker: View {
                         let steps = Int(delta / stepSize)
                         if steps != 0 {
                             dragAccumulator.wrappedValue += CGFloat(steps) * stepSize
+                            flipDirection = steps > 0 ? .down : .up
                             let newValue = (value.wrappedValue - steps + range * 100) % range
                             value.wrappedValue = newValue
                             haptics.tick()

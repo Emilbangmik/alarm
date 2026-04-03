@@ -1,5 +1,22 @@
 import SwiftUI
 
+// MARK: - Flip Direction
+
+enum FlipDirection {
+    case up, down
+}
+
+private struct FlipDirectionKey: EnvironmentKey {
+    static let defaultValue: FlipDirection = .down
+}
+
+extension EnvironmentValues {
+    var flipDirection: FlipDirection {
+        get { self[FlipDirectionKey.self] }
+        set { self[FlipDirectionKey.self] = newValue }
+    }
+}
+
 // MARK: - Size Presets
 
 enum SplitFlapSize {
@@ -96,11 +113,13 @@ struct SplitFlapDigit: View {
     let value: Int
     let size: SplitFlapSize
 
+    @Environment(\.flipDirection) private var flipDirection
     @State private var previousValue: Int
     @State private var animating = false
     @State private var showingFront = true
-    @State private var showOldBottom = false
-    @State private var topAngle: Double = 0
+    @State private var showOldStatic = false
+    @State private var flapAngle: Double = 0
+    @State private var currentDirection: FlipDirection = .down
 
     private var width: CGFloat { size.width }
     private var fullHeight: CGFloat { size.fullHeight }
@@ -129,31 +148,62 @@ struct SplitFlapDigit: View {
 
     var body: some View {
         ZStack {
-            // Static base: new digit
+            // Static base
             VStack(spacing: gap) {
-                makeHalf("\(value)", isTop: true)
-                makeHalf(showOldBottom ? "\(previousValue)" : "\(value)", isTop: false)
+                if currentDirection == .up && animating {
+                    makeHalf(showOldStatic ? "\(previousValue)" : "\(value)", isTop: true)
+                } else {
+                    makeHalf("\(value)", isTop: true)
+                }
+
+                if currentDirection == .down && animating {
+                    makeHalf(showOldStatic ? "\(previousValue)" : "\(value)", isTop: false)
+                } else {
+                    makeHalf("\(value)", isTop: false)
+                }
             }
 
             if animating {
-                // Single flap: front face (old top) → back face (new bottom)
-                VStack(spacing: gap) {
-                    Group {
-                        if showingFront {
-                            makeHalf("\(previousValue)", isTop: true)
-                        } else {
-                            makeHalf("\(value)", isTop: false)
-                                .scaleEffect(y: -1)
+                if currentDirection == .down {
+                    // TOP flap falls DOWN
+                    VStack(spacing: gap) {
+                        Group {
+                            if showingFront {
+                                makeHalf("\(previousValue)", isTop: true)
+                            } else {
+                                makeHalf("\(value)", isTop: false)
+                                    .scaleEffect(y: -1)
+                            }
                         }
+                        .rotation3DEffect(
+                            .degrees(flapAngle),
+                            axis: (1, 0, 0),
+                            anchor: UnitPoint(x: 0.5, y: 1 + gap / (2 * halfHeight)),
+                            perspective: 0.4
+                        )
+                        .zIndex(1)
+                        Color.clear.frame(width: width, height: halfHeight)
                     }
-                    .rotation3DEffect(
-                        .degrees(topAngle),
-                        axis: (1, 0, 0),
-                        anchor: UnitPoint(x: 0.5, y: 1 + gap / (2 * halfHeight)),
-                        perspective: 0.4
-                    )
-                    .zIndex(1)
-                    Color.clear.frame(width: width, height: halfHeight)
+                } else {
+                    // BOTTOM flap flips UP
+                    VStack(spacing: gap) {
+                        Color.clear.frame(width: width, height: halfHeight)
+                        Group {
+                            if showingFront {
+                                makeHalf("\(previousValue)", isTop: false)
+                            } else {
+                                makeHalf("\(value)", isTop: true)
+                                    .scaleEffect(y: -1)
+                            }
+                        }
+                        .rotation3DEffect(
+                            .degrees(flapAngle),
+                            axis: (1, 0, 0),
+                            anchor: UnitPoint(x: 0.5, y: -gap / (2 * halfHeight)),
+                            perspective: 0.4
+                        )
+                        .zIndex(1)
+                    }
                 }
             }
         }
@@ -161,27 +211,27 @@ struct SplitFlapDigit: View {
         .onChange(of: value) { oldVal, newVal in
             guard oldVal != newVal else { return }
             previousValue = oldVal
+            currentDirection = flipDirection
             animating = true
             showingFront = true
-            showOldBottom = true
-            topAngle = 0
+            showOldStatic = true
+            flapAngle = 0
 
-            // Phase 1: front face falls (0° → -90°)
+            let phase1Target: Double = currentDirection == .down ? -90 : 90
+            let phase2Target: Double = currentDirection == .down ? -180 : 180
+
             withAnimation(.easeIn(duration: 0.25)) {
-                topAngle = -90
+                flapAngle = phase1Target
             }
 
-            // Phase 2: swap face at midpoint, continue (-90° → -180°)
             Task {
                 try? await Task.sleep(for: .seconds(0.25))
                 showingFront = false
                 withAnimation(.easeOut(duration: 0.25)) {
-                    topAngle = -180
+                    flapAngle = phase2Target
                 }
-                // Switch static bottom to new digit while flap covers it
                 try? await Task.sleep(for: .seconds(0.2))
-                showOldBottom = false
-                // Remove flap after it has fully landed
+                showOldStatic = false
                 try? await Task.sleep(for: .seconds(0.05))
                 animating = false
                 showingFront = true

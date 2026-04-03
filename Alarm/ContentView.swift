@@ -14,16 +14,9 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 28) {
-                    // Current time
-                    SplitFlapClock()
-                        .frame(height: 120)
-                        .padding(.top, 8)
-
-                    // Alarm list
-                    AlarmListView()
-                        .padding(.horizontal, 16)
-                }
+                AlarmListView()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
             }
             .background(Theme.background)
             .navigationTitle("Alarm")
