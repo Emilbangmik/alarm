@@ -5,6 +5,33 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            // MARK: - About
+            Section {
+                NavigationLink {
+                    AboutView()
+                } label: {
+                    HStack {
+                        Label {
+                            Text("About")
+                                .foregroundStyle(Theme.textPrimary)
+                        } icon: {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(Theme.amber)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary.opacity(0.5))
+                    }
+                }
+                .listRowBackground(Theme.surface)
+            } header: {
+                Text("General")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.amber.opacity(0.7))
+                    .tracking(1.5)
+            }
+
             // MARK: - Developer
             Section {
                 Button {

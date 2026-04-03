@@ -6,16 +6,32 @@ struct AlarmListView: View {
 
     var body: some View {
         if store.alarms.isEmpty {
-            VStack(spacing: 12) {
-                Image(systemName: "alarm")
-                    .font(.system(size: 40))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.5))
-                Text("No alarms yet")
-                    .font(.headline)
-                    .foregroundStyle(Theme.textSecondary)
+            VStack(spacing: 20) {
+                Spacer()
+
+                VStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(Theme.surface)
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "alarm")
+                            .font(.system(size: 32))
+                            .foregroundStyle(Theme.amber.opacity(0.6))
+                    }
+
+                    VStack(spacing: 6) {
+                        Text("No alarms yet")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text("Tap + to set your first alarm")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+
+                Spacer()
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 60)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {
                 ForEach(store.alarms) { alarm in
