@@ -15,7 +15,7 @@ struct ContentView: View {
         NavigationStack {
             AlarmListView()
                 .background(Theme.background)
-            .navigationTitle("Slap")
+            .navigationTitle("Alarm")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {

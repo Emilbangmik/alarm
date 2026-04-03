@@ -19,9 +19,11 @@ struct AlarmListView: View {
         } else {
             List {
                 ForEach(store.alarms) { alarm in
-                    AlarmRowView(alarm: alarm) {
+                    AlarmRowView(alarm: alarm, onToggle: {
                         store.toggle(alarm)
-                    }
+                    }, onTap: {
+                        editingAlarm = alarm
+                    })
                     .listRowBackground(Color.clear)
                     .listRowSeparatorTint(Theme.divider)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -31,9 +33,6 @@ struct AlarmListView: View {
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
-                    }
-                    .onTapGesture {
-                        editingAlarm = alarm
                     }
                 }
             }

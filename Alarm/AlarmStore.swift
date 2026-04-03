@@ -8,6 +8,7 @@ nonisolated struct AlarmMeta: AlarmMetadata {}
 final class AlarmStore {
     private(set) var alarms: [Alarm] = []
     var activeChallenge: Alarm?
+    private var alertedAlarmIDs: Set<UUID> = []
     private let key = "savedAlarms"
     private let manager = AlarmManager.shared
 
@@ -28,12 +29,22 @@ final class AlarmStore {
                         activeChallenge = localAlarm
                     }
 
-                    // Non-challenge one-time alarm finished — disable it
-                    if systemAlarm.state != .alerting,
+                    // Track alarms that have started alerting
+                    if systemAlarm.state == .alerting {
+                        alertedAlarmIDs.insert(systemAlarm.id)
+                    }
+                }
+
+                // Non-challenge one-time alarms: disable after they finish alerting
+                for id in alertedAlarmIDs {
+                    let stillExists = systemAlarms.contains { $0.id == id }
+                    if !stillExists,
+                       let localAlarm = alarms.first(where: { $0.id == id }),
                        !localAlarm.requiresTypingChallenge,
                        localAlarm.repeatDays.isEmpty,
                        localAlarm.isEnabled {
                         disableIfOneTime(localAlarm)
+                        alertedAlarmIDs.remove(id)
                     }
                 }
 
